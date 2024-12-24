@@ -164,7 +164,3 @@ class TransformerBlock(nn.Module):
         output = self.decode(memory, src_mask, tgt, tgt_mask)
         output = self.fc_out(output)
         return output
-
-
-if __name__ == '__main__':
-    print(1)

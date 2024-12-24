@@ -81,8 +81,6 @@ class Tokenizer:
     def get_vocab_size(self):
         return len(self.token2idx)
 
-
-tokenizer = Tokenizer(dict_path='./ru_dict.json')
-
 if __name__ == '__main__':
+    tokenizer = Tokenizer(dict_path=r'G2P_ru\src\g2p_ru\configs\ru_dict.json')
     print(tokenizer.encode('пампам'))  #[0, 56, 55, 61, 56, 55, 61, 1]

@@ -1,28 +1,28 @@
 import torch
-from transformer import TransformerBlock
-from tokenizer import tokenizer
-from config import config_g2p
+from .transformer import TransformerBlock
+from .tokenizer import Tokenizer
+from .configs.config import config_g2p
+import os
 
-G2P = TransformerBlock(tokenizer=tokenizer,
-                       config=config_g2p)
+absolute = os.path.abspath(os.path.dirname(__file__))
 
-G2P.load_state_dict(torch.load('wer2.pt'))
-
-class g2p_ru:
-    def __init__(self):  # Исправлено на __init__
-        self.G2P = G2P
+class G2P_RU():
+    def __init__(self): 
+        self.tokenizer = Tokenizer(dict_path=os.path.join(absolute, "./configs/ru_dict.json"))
+        self.G2P = TransformerBlock(tokenizer=self.tokenizer, config=config_g2p)
+        self.G2P.load_state_dict(torch.load(os.path.join(absolute,"./weight/wer2.pt")))
 
     def __call__(self, seq: str):
         seq = seq.lower()
-        result = self.greedy_decode_grapheme(seq, 32, tokenizer.sos_idx)
+        result = self.greedy_decode_grapheme(seq, 32, self.tokenizer.sos_idx)
         return result
 
     def greedy_decode_grapheme(self, src, max_len, start_token):
         with torch.no_grad():
             self.G2P.eval()
-            enc_input_tokens = torch.tensor(tokenizer.encode(src))
+            enc_input_tokens = torch.tensor(self.tokenizer.encode(src))
 
-            pad_id = [tokenizer.pad_idx]
+            pad_id = [self.tokenizer.pad_idx]
             enc_num_padding_tokens = 32 - len(enc_input_tokens)
 
             encoder_input = torch.cat([
@@ -45,20 +45,18 @@ class g2p_ru:
                 prob = self.G2P.fc_out(out[:, -1])
                 _, next_word = torch.max(prob, dim=1)
                 next_word = next_word.item()
+                new_token = torch.ones(1, 1).long().fill_(next_word) 
+                label = torch.cat([label, new_token], dim=1) 
 
-                # Обновляем label
-                new_token = torch.ones(1, 1).long().fill_(next_word)  # Переносим на устройство
-                label = torch.cat([label, new_token], dim=1)  # Объединяем тензоры на одном устройстве
-
-                if next_word == tokenizer.eos_idx:
+                if next_word == self.tokenizer.eos_idx:
                     break
-            pred = tokenizer.decode(label[0].tolist()[1:-1])
 
+            pred = self.tokenizer.decode(label[0].tolist()[1:-1])
             return pred
 
 
 if __name__ == '__main__':
-    g2p_instance = g2p_ru()
+    g2p_instance = G2P_RU()
     while True:
         inp = str(input())
         result = g2p_instance(inp) #['z', 'd', 'r', 'a', 's', 't', 'v', 'j', 'tj', 'e']
