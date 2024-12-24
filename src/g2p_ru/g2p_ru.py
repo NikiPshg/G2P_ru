@@ -3,19 +3,30 @@ from .transformer import TransformerBlock
 from .tokenizer import Tokenizer
 from .configs.config import config_g2p
 import os
+import string 
 
 absolute = os.path.abspath(os.path.dirname(__file__))
 
 class G2P_RU():
-    def __init__(self): 
+    def __init__(self):
+
         self.tokenizer = Tokenizer(dict_path=os.path.join(absolute, "./configs/ru_dict.json"))
         self.G2P = TransformerBlock(tokenizer=self.tokenizer, config=config_g2p)
         self.G2P.load_state_dict(torch.load(os.path.join(absolute,"./weight/wer2.pt")))
 
     def __call__(self, seq: str):
-        seq = seq.lower()
-        result = self.greedy_decode_grapheme(seq, 32, self.tokenizer.sos_idx)
-        return result
+            words_and_punctuations = self._split_text(seq)
+
+            result = []
+            for item in words_and_punctuations:
+                if item in string.punctuation:
+                    result.append(item)
+                else:
+                    phonemes = self.greedy_decode_grapheme(item, 32, self.tokenizer.sos_idx)
+                    result.extend(phonemes) 
+
+            return result
+
 
     def greedy_decode_grapheme(self, src, max_len, start_token):
         with torch.no_grad():
@@ -53,7 +64,32 @@ class G2P_RU():
 
             pred = self.tokenizer.decode(label[0].tolist()[1:-1])
             return pred
+        
+    def _split_text(self, text):
+        """Разделяет текст на слова, пробелы и пунктуацию, учитывая правила форматирования."""
+        result = []
+        word = ""
 
+        for char in text:
+            if char in string.punctuation:
+                if word:
+                    result.append(word)
+                    word = ""
+                result.append(char) 
+            elif char == ' ':
+                if word:
+                    result.append(word)
+                    word = ""
+                result.append(char)  
+            else:
+                word += char
+
+        if word:
+            result.append(word) 
+
+        result = [item for item in result if item != '']
+
+        return result
 
 if __name__ == '__main__':
     g2p_instance = G2P_RU()
