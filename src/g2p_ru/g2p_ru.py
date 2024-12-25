@@ -15,17 +15,26 @@ class G2P_RU():
         self.G2P.load_state_dict(torch.load(os.path.join(absolute,"./weight/wer2.pt")))
 
     def __call__(self, seq: str):
-            words_and_punctuations = self._split_text(seq)
+        words_and_punctuations = self._split_text(seq)
+        temp = []
+        for item in words_and_punctuations:
+            if item in string.punctuation:
+                temp.append(item)
+            else:
+                phonemes = self.greedy_decode_grapheme(item, 32, self.tokenizer.sos_idx)
+                temp.extend(phonemes + [' '])
 
-            result = []
-            for item in words_and_punctuations:
-                if item in string.punctuation:
-                    result.append(item)
-                else:
-                    phonemes = self.greedy_decode_grapheme(item, 32, self.tokenizer.sos_idx)
-                    result.extend(phonemes) 
+        result = []
+        for i, token in enumerate(temp):
+            if token == ' ':
+                if (i > 0 and temp[i - 1] in string.punctuation) or \
+                (i < len(temp) - 1 and temp[i + 1] in string.punctuation) or \
+                 temp[i - 1] in ' ':
+                    continue  
+            result.append(token)
 
-            return result
+        return result[:-1] if result[-1] == ' ' else result
+
 
 
     def greedy_decode_grapheme(self, src, max_len, start_token):
@@ -65,31 +74,33 @@ class G2P_RU():
             pred = self.tokenizer.decode(label[0].tolist()[1:-1])
             return pred
         
-    def _split_text(self, text):
-        """Разделяет текст на слова, пробелы и пунктуацию, учитывая правила форматирования."""
+    def _split_text(self, seq: str):
         result = []
-        word = ""
+        temp = ""
 
-        for char in text:
+        for char in seq:
             if char in string.punctuation:
-                if word:
-                    result.append(word)
-                    word = ""
+                if temp: 
+                    result.append(temp)
+                    temp = ""
                 result.append(char) 
-            elif char == ' ':
-                if word:
-                    result.append(word)
-                    word = ""
-                result.append(char)  
+            elif char == " ":
+                if temp: 
+                    result.append(temp)
+                    temp = ""
             else:
-                word += char
+                temp += char
 
-        if word:
-            result.append(word) 
+        if temp:  
+            result.append(temp)
 
-        result = [item for item in result if item != '']
+        if result and result[0] == " ":
+            result.pop(0)
+        if result and result[-1] == " ":
+            result.pop()
 
         return result
+
 
 if __name__ == '__main__':
     g2p_instance = G2P_RU()
