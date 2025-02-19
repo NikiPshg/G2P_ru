@@ -15,7 +15,7 @@ class G2P_RU():
         self.G2P.load_state_dict(torch.load(os.path.join(absolute,"./weight/wer2.pt")))
 
     def __call__(self, seq: str):
-        words_and_punctuations = self._split_text(seq)
+        words_and_punctuations = self._split_text(seq.lower())
         temp = []
         for item in words_and_punctuations:
             if item in string.punctuation:
